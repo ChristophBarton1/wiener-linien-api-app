@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiener Linien U-Bahn Tracker</title>
+    <style>
+        :root {
+            --u1-color: #e6091c;
+            --u2-color: #a762a3;
+            --u3-color: #f37421;
+            --u4-color: #00963f;
+            --u5-color: #0e6f68;
+            --u6-color: #8c5e2a;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e60000;
+            padding-bottom: 10px;
+        }
+        
+        h1 {
+            color: #e60000;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .api-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        /* U-Bahn Station Visualization */
+        .station-map {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .platform {
+            position: absolute;
+            background-color: #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            width: 80%;
+            left: 10%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .platform-u1 {
+            top: 50px;
+            border-left: 5px solid var(--u1-color);
+        }
+        
+        .platform-u2 {
+            top: 170px;
+            border-left: 5px solid var(--u2-color);
+        }
+        
+        .platform-u4 {
+            top: 290px;
+            border-left: 5px solid var(--u4-color);
+        }
+        
+        .platform-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .platform-name {
+            font-weight: bold;
+        }
+        
+        .train-container {
+            width: 100%;
+            position: relative;
+            height: 40px;
+            background-color: #e8e8e8;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .train {
+            position: absolute;
+            height: 30px;
+            top: 5px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transition: left 1s ease-in-out;
+            animation: pulse 2s infinite;
+        }
+        
+        .train-u1 {
+            background-color: var(--u1-color);
+        }
+        
+        .train-u2 {
+            background-color: var(--u2-color);
+        }
+        
+        .train-u4 {
+            background-color: var(--u4-color);
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2);
+            }
+            70% {
+                box-shadow: 0 0 0 5px rgba(0, 0, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+            }
+        }
+        
+        /* Departures Table */
+        .departures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .departures-table th {
+            background-color: #e8e8e8;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .departures-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .line-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        
+        .u1 {
+            background-color: var(--u1-color);
+        }
+        
+        .u2 {
+            background-color: var(--u2-color);
+        }
+        
+        .u3 {
+            background-color: var(--u3-color);
+        }
+        
+        .u4 {
+            background-color: var(--u4-color);
+        }
+        
+        .u5 {
+            background-color: var(--u5-color);
+        }
+        
+        .u6 {
+            background-color: var(--u6-color);
+        }
+        
+        .delay {
+            color: #e60000;
+            font-weight: bold;
+        }
+        
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background-color: #e8e8e8;
+            transition: background-color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            background-color: #d0d0d0;
+        }
+        
+        .refresh-button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #e60000;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        
+        .refresh-button:hover {
+            background-color: #c50000;
+        }
+        
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Wiener Linien U-Bahn Tracker</h1>
+        <div>
+            API Status: <span id="api-status" class="api-status">Prüfe...</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">Zurück zur Hauptseite</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>U-Bahn Station Karlsplatz</h2>
+            <p>Live-Anzeige der U-Bahn Ankünfte mit Verspätungen</p>
+            
+            <div class="auto-refresh">
+                <input type="checkbox" id="auto-refresh" checked>
+                <label for="auto-refresh">Automatisch aktualisieren (alle 30 Sekunden)</label>
+            </div>
+            
+            <button id="refresh-button" class="refresh-button">Jetzt aktualisieren</button>
+            
+            <div id="station-map" class="station-map">
+                <!-- Platforms will be added dynamically -->
+                <div class="platform platform-u1">
+                    <div class="platform-header">
+                        <span class="platform-name">U1 Platform</span>
+                    </div>
+                    <div class="train-container" id="u1-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="platform platform-u2">
+                    <div class="platform-header">
+                        <span class="platform-name">U2 Platform</span>
+                    </div>
+                    <div class="train-container" id="u2-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="platform platform-u4">
+                    <div class="platform-header">
+                        <span class="platform-name">U4 Platform</span>
+                    </div>
+                    <div class="train-container" id="u4-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <h3>Abfahrtszeiten</h3>
+            <table class="departures-table">
+                <thead>
+                    <tr>
+                        <th>Linie</th>
+                        <th>Richtung</th>
+                        <th>Abfahrt</th>
+                        <th>Verspätung</th>
+                    </tr>
+                </thead>
+                <tbody id="departures-body">
+                    <!-- Departures will be added dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">Lade Daten...</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check API status
+            checkApiStatus();
+            
+            // Initial data load
+            fetchUBahnData();
+            
+            // Set up event listeners
+            document.getElementById('refresh-button').addEventListener('click', fetchUBahnData);
+            
+            // Auto-refresh
+            let refreshInterval;
+            const autoRefreshCheckbox = document.getElementById('auto-refresh');
+            
+            function setupAutoRefresh() {
+                if (autoRefreshCheckbox.checked) {
+                    refreshInterval = setInterval(fetchUBahnData, 30000); // 30 seconds
+                } else {
+                    clearInterval(refreshInterval);
+                }
+            }
+            
+            autoRefreshCheckbox.addEventListener('change', setupAutoRefresh);
+            setupAutoRefresh(); // Initial setup
+        });
+
+        function checkApiStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    const statusElement = document.getElementById('api-status');
+                    if (data.status === 'online') {
+                        statusElement.textContent = 'Online';
+                        statusElement.className = 'api-status online';
+                    } else {
+                        statusElement.textContent = 'Offline';
+                        statusElement.className = 'api-status offline';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking API status:', error);
+                    const statusElement = document.getElementById('api-status');
+                    statusElement.textContent = 'Fehler';
+                    statusElement.className = 'api-status offline';
+                });
+        }
+
+        function fetchUBahnData() {
+            showLoading(true);
+            
+            console.log('Fetching U-Bahn data...');
+            
+            fetch('/api/ubahn')
+                .then(response => {
+                    console.log('Response received:', response.status);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text(); // First get the raw text response
+                })
+                .then(text => {
+                    try {
+                        console.log('Raw response text:', text.substring(0, 200) + '...');
+                        // Try to parse the text as JSON
+                        const data = JSON.parse(text);
+                        console.log('Parsed data:', data);
+                        showLoading(false);
+                        updateUBahnDisplay(data);
+                    } catch (e) {
+                        // If parsing fails, show the error with the response text for debugging
+                        console.error('Error parsing JSON:', e);
+                        console.error('Raw response:', text);
+                        showLoading(false);
+                        showError('station-map', `Fehler beim Verarbeiten der Daten: ${e.message}`);
+                    }
+                })
+                .catch(error => {
+                    showLoading(false);
+                    console.error('Error fetching U-Bahn data:', error);
+                    showError('station-map', `Fehler beim Abrufen der U-Bahn-Daten: ${error.message}`);
+                });
+        }
+
+        function updateUBahnDisplay(data) {
+            console.log('Updating U-Bahn display with data:', data);
+            
+            if (!data || !data.platforms || data.platforms.length === 0) {
+                console.error('No platforms data available');
+                showError('station-map', 'Keine U-Bahn-Daten verfügbar.');
+                return;
+            }
+            
+            // Clear previous data
+            document.getElementById('departures-body').innerHTML = '';
+            document.getElementById('u1-container').innerHTML = '';
+            document.getElementById('u2-container').innerHTML = '';
+            document.getElementById('u4-container').innerHTML = '';
+            
+            // Process each platform
+            data.platforms.forEach(platform => {
+                console.log('Processing platform:', platform.name);
+                
+                if (!platform.lines) {
+                    console.error('No lines data for platform:', platform.name);
+                    return;
+                }
+                
+                platform.lines.forEach(line => {
+                    if (!line || !line.name) {
+                        console.error('Invalid line data:', line);
+                        return;
+                    }
+                    
+                    const lineName = line.name.toLowerCase();
+                    console.log('Processing line:', line.name, 'towards:', line.towards);
+                    
+                    const lineContainer = document.getElementById(`${lineName}-container`);
+                    
+                    if (!lineContainer) {
+                        console.error('Container not found for line:', lineName);
+                        return;
+                    }
+                    
+                    console.log('Found container for line:', lineName);
+                    
+                    // Add trains to visualization
+                    if (line.departures && line.departures.length > 0) {
+                        console.log('Line has departures:', line.departures.length);
+                        
+                        // Sort departures by time
+                        const sortedDepartures = [...line.departures].sort((a, b) => {
+                            const timeA = new Date(a.departureTime?.timeReal || a.departureTime?.timePlanned);
+                            const timeB = new Date(b.departureTime?.timeReal || b.departureTime?.timePlanned);
+                            return timeA - timeB;
+                        });
+                        
+                        // Only show the next 3 trains
+                        const nextDepartures = sortedDepartures.slice(0, 3);
+                        console.log('Next departures:', nextDepartures);
+                        
+                        nextDepartures.forEach((departure, index) => {
+                            if (!departure.departureTime) {
+                                console.error('No departure time data for departure:', departure);
+                                return;
+                            }
+                            
+                            // Calculate position based on time
+                            const now = new Date();
+                            const departureTime = new Date(departure.departureTime.timeReal || departure.departureTime.timePlanned);
+                            
+                            if (isNaN(departureTime.getTime())) {
+                                console.error('Invalid departure time:', departureTime);
+                                return;
+                            }
+                            
+                            const minutesUntilDeparture = Math.max(0, Math.round((departureTime - now) / 60000));
+                            
+                            console.log('Train departure in', minutesUntilDeparture, 'minutes');
+                            
+                            // Position: closer to departure = closer to right side (100%)
+                            // Max time we show is 30 minutes
+                            const position = 100 - Math.min(100, (minutesUntilDeparture / 30) * 100);
+                            
+                            // Create train element
+                            const train = document.createElement('div');
+                            train.className = `train train-${lineName}`;
+                            train.style.left = `${position}%`;
+                            train.style.width = '60px';
+                            train.textContent = `${minutesUntilDeparture}m`;
+                            
+                            lineContainer.appendChild(train);
+                        });
+                    } else {
+                        console.log('No departures for line:', lineName);
+                    }
+                    
+                    // Add departures to table
+                    if (line.departures && line.departures.length > 0) {
+                        line.departures.forEach(departure => {
+                            if (!departure.departureTime) {
+                                return; // Skip entries without departure time
+                            }
+                            
+                            const row = document.createElement('tr');
+                            
+                            // Line column
+                            const lineCell = document.createElement('td');
+                            const lineBadge = document.createElement('span');
+                            lineBadge.className = `line-badge ${lineName}`;
+                            lineBadge.textContent = line.name;
+                            lineCell.appendChild(lineBadge);
+                            row.appendChild(lineCell);
+                            
+                            // Direction column
+                            const directionCell = document.createElement('td');
+                            directionCell.textContent = line.towards || 'Unbekannt';
+                            row.appendChild(directionCell);
+                            
+                            // Departure time column
+                            const timeCell = document.createElement('td');
+                            if (departure.departureTime && (departure.departureTime.timeReal || departure.departureTime.timePlanned)) {
+                                const departureTime = new Date(departure.departureTime.timeReal || departure.departureTime.timePlanned);
+                                if (!isNaN(departureTime.getTime())) {
+                                    timeCell.textContent = departureTime.toLocaleTimeString('de-AT', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                } else {
+                                    timeCell.textContent = 'Ungültige Zeit';
+                                }
+                            } else {
+                                timeCell.textContent = 'Unbekannt';
+                            }
+                            row.appendChild(timeCell);
+                            
+                            // Delay column
+                            const delayCell = document.createElement('td');
+                            if (departure.departureTime && departure.departureTime.timePlanned && departure.departureTime.timeReal) {
+                                try {
+                                    const planned = new Date(departure.departureTime.timePlanned);
+                                    const real = new Date(departure.departureTime.timeReal);
+                                    
+                                    if (!isNaN(planned.getTime()) && !isNaN(real.getTime())) {
+                                        const delayMs = real - planned;
+                                        const delayMinutes = Math.round(delayMs / 60000);
+                                        
+                                        if (delayMinutes > 0) {
+                                            delayCell.className = 'delay';
+                                            delayCell.textContent = `+${delayMinutes} Min`;
+                                        } else if (delayMinutes < 0) {
+                                            delayCell.className = 'early';
+                                            delayCell.textContent = `${delayMinutes} Min`;
+                                        } else {
+                                            delayCell.textContent = 'Pünktlich';
+                                        }
+                                    } else {
+                                        delayCell.textContent = '-';
+                                    }
+                                } catch (e) {
+                                    console.error('Error calculating delay:', e);
+                                    delayCell.textContent = '-';
+                                }
+                            } else {
+                                delayCell.textContent = '-';
+                            }
+                            row.appendChild(delayCell);
+                            
+                            document.getElementById('departures-body').appendChild(row);
+                        });
+                    }
+                });
+            });
+            
+            console.log('U-Bahn display update complete');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(containerId, message) {
+            console.error('Showing error:', message);
+            const container = document.getElementById(containerId);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            // Clear container and add error
+            container.innerHTML = '';
+            container.appendChild(errorDiv);
+        }
+    </script>
+</body>
+</html>

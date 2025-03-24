@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wiener Linien U-Bahn Tracker (Test)</title>
+    <style>
+        :root {
+            --u1-color: #e6091c;
+            --u2-color: #a762a3;
+            --u3-color: #f37421;
+            --u4-color: #00963f;
+            --u5-color: #0e6f68;
+            --u6-color: #8c5e2a;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #e60000;
+            padding-bottom: 10px;
+        }
+        
+        h1 {
+            color: #e60000;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .api-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        
+        .online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        /* U-Bahn Station Visualization */
+        .station-map {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background-color: #f0f0f0;
+            border-radius: 8px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .platform {
+            position: absolute;
+            background-color: #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            width: 80%;
+            left: 10%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .platform-u1 {
+            top: 50px;
+            border-left: 5px solid var(--u1-color);
+        }
+        
+        .platform-u2 {
+            top: 170px;
+            border-left: 5px solid var(--u2-color);
+        }
+        
+        .platform-u4 {
+            top: 290px;
+            border-left: 5px solid var(--u4-color);
+        }
+        
+        .platform-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .platform-name {
+            font-weight: bold;
+        }
+        
+        .train-container {
+            width: 100%;
+            position: relative;
+            height: 40px;
+            background-color: #e8e8e8;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .train {
+            position: absolute;
+            height: 30px;
+            top: 5px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            transition: left 1s ease-in-out;
+            animation: pulse 2s infinite;
+        }
+        
+        .train-u1 {
+            background-color: var(--u1-color);
+        }
+        
+        .train-u2 {
+            background-color: var(--u2-color);
+        }
+        
+        .train-u4 {
+            background-color: var(--u4-color);
+        }
+        
+        /* Line overview styles */
+        .line-overview {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        
+        .line-map {
+            position: relative;
+            height: 100px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .line-track {
+            position: absolute;
+            top: 45px;
+            left: 5%;
+            width: 90%;
+            height: 10px;
+            background-color: #ddd;
+            border-radius: 5px;
+        }
+        
+        .line-track.u1 {
+            background-color: var(--u1-color);
+        }
+        
+        .line-track.u2 {
+            background-color: var(--u2-color);
+        }
+        
+        .line-track.u4 {
+            background-color: var(--u4-color);
+        }
+        
+        .station-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            top: 40px;
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+        
+        .station-marker.current {
+            background-color: #ffcc00;
+            border-color: #ff9900;
+        }
+        
+        .station-label {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            top: 65px;
+            transform: translateX(-50%);
+            text-align: center;
+            width: 100px;
+        }
+        
+        .train-icon {
+            position: absolute;
+            width: 40px;
+            height: 30px;
+            top: 35px;
+            transform: translateX(-50%);
+            z-index: 2;
+            transition: left 1s ease-in-out;
+            filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+        }
+        
+        .train-icon svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .train-icon.u1 svg path.train-body {
+            fill: var(--u1-color);
+        }
+        
+        .train-icon.u2 svg path.train-body {
+            fill: var(--u2-color);
+        }
+        
+        .train-icon.u4 svg path.train-body {
+            fill: var(--u4-color);
+        }
+        
+        .train-icon.towards-right {
+            transform: translateX(-50%) scaleX(1);
+        }
+        
+        .train-icon.towards-left {
+            transform: translateX(-50%) scaleX(-1);
+        }
+        
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2);
+            }
+            70% {
+                box-shadow: 0 0 0 5px rgba(0, 0, 0, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+            }
+        }
+        
+        /* Departures Table */
+        .departures-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .departures-table th {
+            background-color: #e8e8e8;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .departures-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        
+        .line-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+        }
+        
+        .u1 {
+            background-color: var(--u1-color);
+        }
+        
+        .u2 {
+            background-color: var(--u2-color);
+        }
+        
+        .u3 {
+            background-color: var(--u3-color);
+        }
+        
+        .u4 {
+            background-color: var(--u4-color);
+        }
+        
+        .u5 {
+            background-color: var(--u5-color);
+        }
+        
+        .u6 {
+            background-color: var(--u6-color);
+        }
+        
+        .delay {
+            color: #e60000;
+            font-weight: bold;
+        }
+        
+        .early {
+            color: #00963f;
+            font-weight: bold;
+        }
+        
+        .refresh-button {
+            background-color: #e60000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .refresh-button:hover {
+            background-color: #cc0000;
+        }
+        
+        .auto-refresh {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .nav-links {
+            margin-top: 10px;
+        }
+        
+        .nav-links a {
+            color: #e60000;
+            text-decoration: none;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Wiener Linien U-Bahn Tracker (Test)</h1>
+        <div>
+            API Status: <span id="api-status" class="api-status online">Test-Modus</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html">Zurück zur Hauptseite</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>U-Bahn Station Karlsplatz (Test-Modus)</h2>
+            <p>Diese Seite verwendet Beispieldaten, um die Funktionalität zu demonstrieren</p>
+            
+            <div class="auto-refresh">
+                <input type="checkbox" id="auto-refresh" checked>
+                <label for="auto-refresh">Automatisch aktualisieren (alle 30 Sekunden)</label>
+            </div>
+            
+            <button id="refresh-button" class="refresh-button">Jetzt aktualisieren</button>
+            
+            <div id="station-map" class="station-map">
+                <!-- Platforms will be added dynamically -->
+                <div class="platform platform-u1">
+                    <div class="platform-header">
+                        <span class="platform-name">U1 Platform</span>
+                    </div>
+                    <div class="train-container" id="u1-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="platform platform-u2">
+                    <div class="platform-header">
+                        <span class="platform-name">U2 Platform</span>
+                    </div>
+                    <div class="train-container" id="u2-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+                
+                <div class="platform platform-u4">
+                    <div class="platform-header">
+                        <span class="platform-name">U4 Platform</span>
+                    </div>
+                    <div class="train-container" id="u4-container">
+                        <!-- Trains will be added dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="line-overview">
+                <h3>Aktuelle Position der U-Bahnen</h3>
+                <p>Diese Übersicht zeigt die ungefähre Position der U-Bahnen zwischen den Endstationen:</p>
+                
+                <div class="line-map">
+                    <h4>U1: Leopoldau - Oberlaa</h4>
+                    <div class="line-track u1"></div>
+                    <div class="station-marker" style="left: 5%"></div>
+                    <div class="station-label" style="left: 5%">Leopoldau</div>
+                    <div class="station-marker current" style="left: 50%"></div>
+                    <div class="station-label" style="left: 50%">Karlsplatz</div>
+                    <div class="station-marker" style="left: 95%"></div>
+                    <div class="station-label" style="left: 95%">Oberlaa</div>
+                    <div id="u1-train-icon-1" class="train-icon u1 towards-right" style="left: 30%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                    <div id="u1-train-icon-2" class="train-icon u1 towards-left" style="left: 70%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="line-map">
+                    <h4>U2: Seestadt - Schottentor</h4>
+                    <div class="line-track u2"></div>
+                    <div class="station-marker" style="left: 5%"></div>
+                    <div class="station-label" style="left: 5%">Seestadt</div>
+                    <div class="station-marker current" style="left: 60%"></div>
+                    <div class="station-label" style="left: 60%">Karlsplatz</div>
+                    <div class="station-marker" style="left: 95%"></div>
+                    <div class="station-label" style="left: 95%">Schottentor</div>
+                    <div id="u2-train-icon-1" class="train-icon u2 towards-right" style="left: 25%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                    <div id="u2-train-icon-2" class="train-icon u2 towards-left" style="left: 80%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <div class="line-map">
+                    <h4>U4: Heiligenstadt - Hütteldorf</h4>
+                    <div class="line-track u4"></div>
+                    <div class="station-marker" style="left: 5%"></div>
+                    <div class="station-label" style="left: 5%">Heiligenstadt</div>
+                    <div class="station-marker current" style="left: 40%"></div>
+                    <div class="station-label" style="left: 40%">Karlsplatz</div>
+                    <div class="station-marker" style="left: 95%"></div>
+                    <div class="station-label" style="left: 95%">Hütteldorf</div>
+                    <div id="u4-train-icon-1" class="train-icon u4 towards-right" style="left: 20%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                    <div id="u4-train-icon-2" class="train-icon u4 towards-left" style="left: 65%">
+                        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path class="train-body" d="M4,6v10c0,1.1,0.9,2,2,2h12c1.1,0,2-0.9,2-2V6c0-1.1-0.9-2-2-2H6C4.9,4,4,4.9,4,6z M6,6h12v2H6V6z M6,10h12v6H6V10z" />
+                            <circle cx="7.5" cy="17.5" r="1.5" fill="#333" />
+                            <circle cx="16.5" cy="17.5" r="1.5" fill="#333" />
+                            <rect x="8" y="12" width="2" height="3" fill="#fff" />
+                            <rect x="14" y="12" width="2" height="3" fill="#fff" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            
+            <h3>Abfahrtszeiten</h3>
+            <table class="departures-table">
+                <thead>
+                    <tr>
+                        <th>Linie</th>
+                        <th>Richtung</th>
+                        <th>Abfahrt</th>
+                        <th>Verspätung</th>
+                    </tr>
+                </thead>
+                <tbody id="departures-body">
+                    <!-- Departures will be added dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="loading" class="loading">Lade Daten...</div>
+
+    <script>
+        // Sample data with dynamic time generation
+        function generateSampleData() {
+            const now = new Date();
+            
+            return {
+                station: "Karlsplatz",
+                platforms: [
+                    {
+                        name: "U1 Platform",
+                        lines: [
+                            {
+                                name: "U1",
+                                towards: "Leopoldau",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 3 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 3 * 60000 + 30000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 8 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 8 * 60000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 13 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 13 * 60000).toISOString()
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                name: "U1",
+                                towards: "Oberlaa",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 5 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 5 * 60000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 10 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 10 * 60000 + 120000).toISOString()
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: "U2 Platform",
+                        lines: [
+                            {
+                                name: "U2",
+                                towards: "Seestadt",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 2 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 2 * 60000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 7 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 7 * 60000).toISOString()
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                name: "U2",
+                                towards: "Schottentor",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 4 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 4 * 60000 + 60000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 9 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 9 * 60000).toISOString()
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        name: "U4 Platform",
+                        lines: [
+                            {
+                                name: "U4",
+                                towards: "Heiligenstadt",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 1 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 1 * 60000 + 45000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 6 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 6 * 60000).toISOString()
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                name: "U4",
+                                towards: "Hütteldorf",
+                                departures: [
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 3 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 3 * 60000).toISOString()
+                                        }
+                                    },
+                                    {
+                                        departureTime: {
+                                            timePlanned: new Date(now.getTime() + 8 * 60000).toISOString(),
+                                            timeReal: new Date(now.getTime() + 8 * 60000 + 90000).toISOString()
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            };
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial data load
+            updateUBahnDisplay(generateSampleData());
+            
+            // Set up event listeners
+            document.getElementById('refresh-button').addEventListener('click', function() {
+                showLoading(true);
+                setTimeout(function() {
+                    updateUBahnDisplay(generateSampleData());
+                    showLoading(false);
+                }, 500);
+            });
+            
+            // Auto-refresh
+            let refreshInterval;
+            const autoRefreshCheckbox = document.getElementById('auto-refresh');
+            
+            function setupAutoRefresh() {
+                if (autoRefreshCheckbox.checked) {
+                    refreshInterval = setInterval(function() {
+                        showLoading(true);
+                        setTimeout(function() {
+                            updateUBahnDisplay(generateSampleData());
+                            showLoading(false);
+                        }, 500);
+                    }, 30000); // 30 seconds
+                } else {
+                    clearInterval(refreshInterval);
+                }
+            }
+            
+            autoRefreshCheckbox.addEventListener('change', setupAutoRefresh);
+            setupAutoRefresh(); // Initial setup
+            
+            // Animate train positions on the line maps
+            animateTrains();
+            setInterval(animateTrains, 5000); // Update train positions every 5 seconds
+        });
+
+        // Stationsdaten für die Linien
+        const stationData = {
+            u1: {
+                // Stationen der U1 mit Entfernung zu Karlsplatz (in Stationen)
+                stations: [
+                    { name: "Leopoldau", distance: 14, position: 5 },
+                    { name: "Großfeldsiedlung", distance: 13 },
+                    { name: "Aderklaaer Straße", distance: 12 },
+                    { name: "Rennbahnweg", distance: 11 },
+                    { name: "Kagraner Platz", distance: 10 },
+                    { name: "Kagran", distance: 9 },
+                    { name: "Alte Donau", distance: 8 },
+                    { name: "Donauinsel", distance: 7 },
+                    { name: "Kaisermühlen", distance: 6 },
+                    { name: "Praterstern", distance: 5 },
+                    { name: "Nestroyplatz", distance: 4 },
+                    { name: "Schwedenplatz", distance: 3 },
+                    { name: "Stephansplatz", distance: 2 },
+                    { name: "Karlsplatz", distance: 0, position: 50 },
+                    { name: "Taubstummengasse", distance: 1 },
+                    { name: "Südtiroler Platz", distance: 2 },
+                    { name: "Keplerplatz", distance: 3 },
+                    { name: "Reumannplatz", distance: 4 },
+                    { name: "Alaudagasse", distance: 5 },
+                    { name: "Neulaa", distance: 6 },
+                    { name: "Oberlaa", distance: 7, position: 95 }
+                ],
+                karlsplatzIndex: 13
+            },
+            u2: {
+                // Stationen der U2 mit Entfernung zu Karlsplatz (in Stationen)
+                stations: [
+                    { name: "Seestadt", distance: 12, position: 5 },
+                    { name: "Aspern Nord", distance: 11 },
+                    { name: "Hausfeldstraße", distance: 10 },
+                    { name: "Hardeggasse", distance: 9 },
+                    { name: "Donauspital", distance: 8 },
+                    { name: "Aspernstraße", distance: 7 },
+                    { name: "Stadlau", distance: 6 },
+                    { name: "Donaustadtbrücke", distance: 5 },
+                    { name: "Donaumarina", distance: 4 },
+                    { name: "Stadion", distance: 3 },
+                    { name: "Krieau", distance: 2 },
+                    { name: "Messe-Prater", distance: 1 },
+                    { name: "Praterstern", distance: 0 },
+                    { name: "Taborstraße", distance: 1 },
+                    { name: "Schottenring", distance: 2 },
+                    { name: "Schottentor", distance: 3, position: 95 },
+                    { name: "Rathaus", distance: 4 },
+                    { name: "Volkstheater", distance: 5 },
+                    { name: "Museumsquartier", distance: 6 },
+                    { name: "Karlsplatz", distance: 7, position: 60 }
+                ],
+                karlsplatzIndex: 19
+            },
+            u4: {
+                // Stationen der U4 mit Entfernung zu Karlsplatz (in Stationen)
+                stations: [
+                    { name: "Heiligenstadt", distance: 9, position: 5 },
+                    { name: "Spittelau", distance: 8 },
+                    { name: "Friedensbrücke", distance: 7 },
+                    { name: "Roßauer Lände", distance: 6 },
+                    { name: "Schottenring", distance: 5 },
+                    { name: "Schwedenplatz", distance: 4 },
+                    { name: "Landstraße", distance: 3 },
+                    { name: "Stadtpark", distance: 2 },
+                    { name: "Karlsplatz", distance: 0, position: 40 },
+                    { name: "Kettenbrückengasse", distance: 1 },
+                    { name: "Pilgramgasse", distance: 2 },
+                    { name: "Margaretengürtel", distance: 3 },
+                    { name: "Längenfeldgasse", distance: 4 },
+                    { name: "Meidling Hauptstraße", distance: 5 },
+                    { name: "Schönbrunn", distance: 6 },
+                    { name: "Hietzing", distance: 7 },
+                    { name: "Braunschweiggasse", distance: 8 },
+                    { name: "Unter St. Veit", distance: 9 },
+                    { name: "Ober St. Veit", distance: 10 },
+                    { name: "Hütteldorf", distance: 11, position: 95 }
+                ],
+                karlsplatzIndex: 8
+            }
+        };
+
+        function animateTrains() {
+            // Statt zufälliger Bewegungen nutzen wir die Abfahrtszeiten, um die Position zu berechnen
+            const now = new Date();
+            const data = generateSampleData();
+            
+            // Funktion, um die Position basierend auf Abfahrtszeiten zu berechnen
+            function calculateTrainPosition(lineName, direction) {
+                // Standardposition, falls keine passenden Daten gefunden werden
+                let position = Math.random() * 90 + 5;
+                
+                // Finde die Plattform für diese Linie
+                const platform = data.platforms.find(p => p.name.toLowerCase().includes(lineName.toLowerCase()));
+                if (!platform) return position;
+                
+                // Finde die Linie mit der angegebenen Richtung
+                const line = platform.lines.find(l => 
+                    l.name.toLowerCase() === lineName.toLowerCase() && 
+                    l.towards.includes(direction));
+                
+                if (!line || !line.departures || line.departures.length === 0) return position;
+                
+                // Sortiere Abfahrten nach Zeit
+                const sortedDepartures = [...line.departures].sort((a, b) => {
+                    const timeA = new Date(a.departureTime?.timeReal || a.departureTime?.timePlanned);
+                    const timeB = new Date(b.departureTime?.timeReal || b.departureTime?.timePlanned);
+                    return timeA - timeB;
+                });
+                
+                // Nehme die nächste Abfahrt
+                const nextDeparture = sortedDepartures[0];
+                if (!nextDeparture || !nextDeparture.departureTime) return position;
+                
+                const departureTime = new Date(nextDeparture.departureTime.timeReal || nextDeparture.departureTime.timePlanned);
+                
+                // Berechne Minuten bis zur Abfahrt
+                const minutesUntilDeparture = Math.max(0, (departureTime - now) / 60000);
+                
+                // Hole die Stationsdaten für diese Linie
+                const lineStations = stationData[lineName];
+                if (!lineStations) return position;
+                
+                // Bestimme die Endstation basierend auf der Richtung
+                let endStationIndex;
+                let stationsToKarlsplatz;
+                
+                // Karlsplatz-Index in der Stationsliste
+                const karlsplatzIndex = lineStations.karlsplatzIndex;
+                
+                if (lineName === "u1") {
+                    if (direction.includes("Leopoldau")) {
+                        endStationIndex = 0; // Leopoldau ist die erste Station
+                        stationsToKarlsplatz = karlsplatzIndex;
+                    } else {
+                        endStationIndex = lineStations.stations.length - 1; // Oberlaa ist die letzte Station
+                        stationsToKarlsplatz = lineStations.stations.length - 1 - karlsplatzIndex;
+                    }
+                } else if (lineName === "u2") {
+                    if (direction.includes("Seestadt")) {
+                        endStationIndex = 0; // Seestadt ist die erste Station
+                        stationsToKarlsplatz = karlsplatzIndex;
+                    } else {
+                        endStationIndex = 15; // Schottentor ist die Station an Position 15
+                        stationsToKarlsplatz = Math.abs(karlsplatzIndex - endStationIndex);
+                    }
+                } else if (lineName === "u4") {
+                    if (direction.includes("Heiligenstadt")) {
+                        endStationIndex = 0; // Heiligenstadt ist die erste Station
+                        stationsToKarlsplatz = karlsplatzIndex;
+                    } else {
+                        endStationIndex = lineStations.stations.length - 1; // Hütteldorf ist die letzte Station
+                        stationsToKarlsplatz = lineStations.stations.length - 1 - karlsplatzIndex;
+                    }
+                } else {
+                    return position; // Fallback
+                }
+                
+                // Bestimme die aktuelle Station basierend auf der Zeit bis zur Abfahrt
+                // Annahme: Durchschnittlich 2 Minuten zwischen Stationen
+                const minutesPerStation = 2;
+                const stationsFromKarlsplatz = Math.min(
+                    Math.floor(minutesUntilDeparture / minutesPerStation),
+                    stationsToKarlsplatz
+                );
+                
+                // Berechne die Position zwischen den Stationen
+                const remainingMinutes = minutesUntilDeparture % minutesPerStation;
+                const percentBetweenStations = remainingMinutes / minutesPerStation;
+                
+                // Bestimme die aktuelle und nächste Station
+                let currentStationIndex, nextStationIndex;
+                
+                if (endStationIndex < karlsplatzIndex) {
+                    // Zug fährt Richtung Anfang der Linie
+                    currentStationIndex = karlsplatzIndex - stationsFromKarlsplatz;
+                    nextStationIndex = Math.max(currentStationIndex - 1, 0);
+                } else {
+                    // Zug fährt Richtung Ende der Linie
+                    currentStationIndex = karlsplatzIndex + stationsFromKarlsplatz;
+                    nextStationIndex = Math.min(currentStationIndex + 1, lineStations.stations.length - 1);
+                }
+                
+                // Hole die Positionen der aktuellen und nächsten Station
+                let currentStationPos, nextStationPos;
+                
+                // Interpoliere die Positionen für Stationen ohne explizite Position
+                function getStationPosition(index) {
+                    const station = lineStations.stations[index];
+                    if (station.position !== undefined) {
+                        return station.position;
+                    }
+                    
+                    // Finde die nächsten Stationen mit definierten Positionen
+                    let prevIndex = index;
+                    let nextIndex = index;
+                    let prevPos, nextPos;
+                    
+                    while (prevIndex >= 0) {
+                        if (lineStations.stations[prevIndex].position !== undefined) {
+                            prevPos = lineStations.stations[prevIndex].position;
+                            break;
+                        }
+                        prevIndex--;
+                    }
+                    
+                    while (nextIndex < lineStations.stations.length) {
+                        if (lineStations.stations[nextIndex].position !== undefined) {
+                            nextPos = lineStations.stations[nextIndex].position;
+                            break;
+                        }
+                        nextIndex++;
+                    }
+                    
+                    if (prevPos !== undefined && nextPos !== undefined) {
+                        // Interpoliere die Position
+                        const totalStations = nextIndex - prevIndex;
+                        const currentOffset = index - prevIndex;
+                        return prevPos + (nextPos - prevPos) * (currentOffset / totalStations);
+                    } else if (prevPos !== undefined) {
+                        return prevPos;
+                    } else if (nextPos !== undefined) {
+                        return nextPos;
+                    } else {
+                        // Fallback
+                        return 50;
+                    }
+                }
+                
+                currentStationPos = getStationPosition(currentStationIndex);
+                nextStationPos = getStationPosition(nextStationIndex);
+                
+                // Interpoliere die Position zwischen den Stationen
+                if (endStationIndex < karlsplatzIndex) {
+                    // Zug fährt Richtung Anfang der Linie (links)
+                    position = currentStationPos - percentBetweenStations * Math.abs(nextStationPos - currentStationPos);
+                } else {
+                    // Zug fährt Richtung Ende der Linie (rechts)
+                    position = currentStationPos + percentBetweenStations * Math.abs(nextStationPos - currentStationPos);
+                }
+                
+                // Wenn der Zug sehr nah an Karlsplatz ist (weniger als 1 Minute)
+                if (minutesUntilDeparture < 1) {
+                    position = lineStations.stations[karlsplatzIndex].position;
+                }
+                
+                // Stelle sicher, dass die Position im gültigen Bereich liegt
+                return Math.max(5, Math.min(95, position));
+            }
+            
+            // U1 Züge aktualisieren
+            const u1Train1 = document.getElementById('u1-train-icon-1');
+            const u1Train2 = document.getElementById('u1-train-icon-2');
+            
+            u1Train1.style.left = calculateTrainPosition('u1', 'Leopoldau') + '%';
+            u1Train2.style.left = calculateTrainPosition('u1', 'Oberlaa') + '%';
+            
+            // U2 Züge aktualisieren
+            const u2Train1 = document.getElementById('u2-train-icon-1');
+            const u2Train2 = document.getElementById('u2-train-icon-2');
+            
+            u2Train1.style.left = calculateTrainPosition('u2', 'Seestadt') + '%';
+            u2Train2.style.left = calculateTrainPosition('u2', 'Schottentor') + '%';
+            
+            // U4 Züge aktualisieren
+            const u4Train1 = document.getElementById('u4-train-icon-1');
+            const u4Train2 = document.getElementById('u4-train-icon-2');
+            
+            u4Train1.style.left = calculateTrainPosition('u4', 'Heiligenstadt') + '%';
+            u4Train2.style.left = calculateTrainPosition('u4', 'Hütteldorf') + '%';
+        }
+
+        function updateUBahnDisplay(data) {
+            console.log('Updating U-Bahn display with data:', data);
+            
+            if (!data || !data.platforms || data.platforms.length === 0) {
+                console.error('No platforms data available');
+                showError('station-map', 'Keine U-Bahn-Daten verfügbar.');
+                return;
+            }
+            
+            // Clear previous data
+            document.getElementById('departures-body').innerHTML = '';
+            document.getElementById('u1-container').innerHTML = '';
+            document.getElementById('u2-container').innerHTML = '';
+            document.getElementById('u4-container').innerHTML = '';
+            
+            // Process each platform
+            data.platforms.forEach(platform => {
+                console.log('Processing platform:', platform.name);
+                
+                if (!platform.lines) {
+                    console.error('No lines data for platform:', platform.name);
+                    return;
+                }
+                
+                platform.lines.forEach(line => {
+                    if (!line || !line.name) {
+                        console.error('Invalid line data:', line);
+                        return;
+                    }
+                    
+                    const lineName = line.name.toLowerCase();
+                    console.log('Processing line:', line.name, 'towards:', line.towards);
+                    
+                    const lineContainer = document.getElementById(`${lineName}-container`);
+                    
+                    if (!lineContainer) {
+                        console.error('Container not found for line:', lineName);
+                        return;
+                    }
+                    
+                    console.log('Found container for line:', lineName);
+                    
+                    // Add trains to visualization
+                    if (line.departures && line.departures.length > 0) {
+                        console.log('Line has departures:', line.departures.length);
+                        
+                        // Sort departures by time
+                        const sortedDepartures = [...line.departures].sort((a, b) => {
+                            const timeA = new Date(a.departureTime?.timeReal || a.departureTime?.timePlanned);
+                            const timeB = new Date(b.departureTime?.timeReal || b.departureTime?.timePlanned);
+                            return timeA - timeB;
+                        });
+                        
+                        // Only show the next 3 trains
+                        const nextDepartures = sortedDepartures.slice(0, 3);
+                        console.log('Next departures:', nextDepartures);
+                        
+                        nextDepartures.forEach((departure, index) => {
+                            if (!departure.departureTime) {
+                                console.error('No departure time data for departure:', departure);
+                                return;
+                            }
+                            
+                            // Calculate position based on time
+                            const now = new Date();
+                            const departureTime = new Date(departure.departureTime.timeReal || departure.departureTime.timePlanned);
+                            
+                            if (isNaN(departureTime.getTime())) {
+                                console.error('Invalid departure time:', departureTime);
+                                return;
+                            }
+                            
+                            const minutesUntilDeparture = Math.max(0, Math.round((departureTime - now) / 60000));
+                            
+                            console.log('Train departure in', minutesUntilDeparture, 'minutes');
+                            
+                            // Position: closer to departure = closer to right side (100%)
+                            // Max time we show is 30 minutes
+                            const position = 100 - Math.min(100, (minutesUntilDeparture / 30) * 100);
+                            
+                            // Create train element
+                            const train = document.createElement('div');
+                            train.className = `train train-${lineName}`;
+                            train.style.left = `${position}%`;
+                            train.style.width = '60px';
+                            train.textContent = `${minutesUntilDeparture}m`;
+                            
+                            lineContainer.appendChild(train);
+                        });
+                    } else {
+                        console.log('No departures for line:', lineName);
+                    }
+                    
+                    // Add departures to table
+                    if (line.departures && line.departures.length > 0) {
+                        line.departures.forEach(departure => {
+                            if (!departure.departureTime) {
+                                return; // Skip entries without departure time
+                            }
+                            
+                            const row = document.createElement('tr');
+                            
+                            // Line column
+                            const lineCell = document.createElement('td');
+                            const lineBadge = document.createElement('span');
+                            lineBadge.className = `line-badge ${lineName}`;
+                            lineBadge.textContent = line.name;
+                            lineCell.appendChild(lineBadge);
+                            row.appendChild(lineCell);
+                            
+                            // Direction column
+                            const directionCell = document.createElement('td');
+                            directionCell.textContent = line.towards || 'Unbekannt';
+                            row.appendChild(directionCell);
+                            
+                            // Departure time column
+                            const timeCell = document.createElement('td');
+                            if (departure.departureTime && (departure.departureTime.timeReal || departure.departureTime.timePlanned)) {
+                                const departureTime = new Date(departure.departureTime.timeReal || departure.departureTime.timePlanned);
+                                if (!isNaN(departureTime.getTime())) {
+                                    timeCell.textContent = departureTime.toLocaleTimeString('de-AT', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    });
+                                } else {
+                                    timeCell.textContent = 'Ungültige Zeit';
+                                }
+                            } else {
+                                timeCell.textContent = 'Unbekannt';
+                            }
+                            row.appendChild(timeCell);
+                            
+                            // Delay column
+                            const delayCell = document.createElement('td');
+                            if (departure.departureTime && departure.departureTime.timePlanned && departure.departureTime.timeReal) {
+                                try {
+                                    const planned = new Date(departure.departureTime.timePlanned);
+                                    const real = new Date(departure.departureTime.timeReal);
+                                    
+                                    if (!isNaN(planned.getTime()) && !isNaN(real.getTime())) {
+                                        const delayMs = real - planned;
+                                        const delayMinutes = Math.round(delayMs / 60000);
+                                        
+                                        if (delayMinutes > 0) {
+                                            delayCell.className = 'delay';
+                                            delayCell.textContent = `+${delayMinutes} Min`;
+                                        } else if (delayMinutes < 0) {
+                                            delayCell.className = 'early';
+                                            delayCell.textContent = `${delayMinutes} Min`;
+                                        } else {
+                                            delayCell.textContent = 'Pünktlich';
+                                        }
+                                    } else {
+                                        delayCell.textContent = '-';
+                                    }
+                                } catch (e) {
+                                    console.error('Error calculating delay:', e);
+                                    delayCell.textContent = '-';
+                                }
+                            } else {
+                                delayCell.textContent = '-';
+                            }
+                            row.appendChild(delayCell);
+                            
+                            document.getElementById('departures-body').appendChild(row);
+                        });
+                    }
+                });
+            });
+            
+            console.log('U-Bahn display update complete');
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showError(containerId, message) {
+            console.error('Showing error:', message);
+            const container = document.getElementById(containerId);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            errorDiv.textContent = message;
+            
+            // Clear container and add error
+            container.innerHTML = '';
+            container.appendChild(errorDiv);
+        }
+    </script>
+</body>
+</html>
