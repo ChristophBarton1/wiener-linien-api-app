@@ -77,6 +77,6 @@ python test_api.py   # command-line API test
 
 <div align="center">
 
-Built by [Christoph Barton](https://christophbarton.com)
+Built by [Christoph Barton](https://christophbarton.com) · [More projects](https://github.com/ChristophBarton1)
 
 </div>
