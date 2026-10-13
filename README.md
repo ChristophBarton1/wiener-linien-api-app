@@ -23,7 +23,7 @@ This is a prototype that tests how well the Wiener Linien real-time API (`ogd_re
 
 > **Note:** The Vercel deployment only serves the static frontend. The `/api/*` routes need the Node server, so run the project locally (see below) to get live data.
 
-## ✨ Features
+## Features
 
 - **Station monitor:** look up real-time departures for any stop by its RBL number, with preset test stations (Stephansplatz, Karlsplatz, Praterstern).
 - **API proxy:** an Express endpoint (`/api/monitor?rbl=…`) forwards requests to Wiener Linien and passes upstream errors through as readable messages.
@@ -32,7 +32,7 @@ This is a prototype that tests how well the Wiener Linien real-time API (`ogd_re
 - **U-Bahn tracker (`ubahn.html`):** a departure board for Karlsplatz (U1/U2/U4) that marks delays (planned vs. real time) and can refresh itself every 30 seconds. It **currently runs on generated sample data**.
 - **Python alternative:** a Flask app (`app.py`) with a reusable API client (`api_client.py`) and a command-line tester (`test_api.py`).
 
-## 🧱 Tech stack
+## Tech stack
 
 | Layer | Tools |
 | --- | --- |
@@ -41,7 +41,7 @@ This is a prototype that tests how well the Wiener Linien real-time API (`ogd_re
 | Backend (Python) | Flask, Requests |
 | Data | [Wiener Linien Open Government Data, real-time monitor](https://www.wienerlinien.at/open-data) |
 
-## 🚀 Run locally
+## Run locally
 
 **Node / Express (main version)**
 
@@ -60,7 +60,7 @@ python app.py        # → http://localhost:5000
 python test_api.py   # command-line API test
 ```
 
-## 📁 Project structure
+## Project structure
 
 ```
 ├── server.js          # Express server + API proxy
